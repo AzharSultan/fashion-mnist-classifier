@@ -1,5 +1,5 @@
-snapshot_dir: 'snapshots/'
-log_dir: 'logs/'
+snapshot_dir: 'data/snapshots/'
+log_dir: 'data/logs/'
 architecture: 'wrn_28_10'
 epochs: 400
 batch_size: 64
@@ -10,3 +10,5 @@ row_size: 28
 col_size: 28
 channels: 1
 num_classes: 10
+knn_compare: False
+activation_maps: True

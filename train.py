@@ -1,3 +1,4 @@
+import cv2
 import os
 import click
 import yaml
@@ -23,7 +24,11 @@ class TensorBoardWithSession(TensorBoard):
 
 from models import build_arch
 from data_generators import get_train_val_gen, get_test_data
+from visualize_activation import overlay_cam
 from knn import knn
+
+LABELS = {0 : "T-shirt/top", 1: "Trouser", 2: "Pullover", 3: "Dress", 4: "Coat",
+          5: "Sandal", 6: "Shirt", 7: "Sneaker", 8: "Bag", 9: "Ankle Boot"}
 
 def train(config):
     batch_size = config["batch_size"]
@@ -38,6 +43,10 @@ def train(config):
     num_classes = config["num_classes"]
     snapshot_dir = config["snapshot_dir"]
     log_dir = config["log_dir"]
+    knn_compare = config["knn_compare"]
+    activation_maps = config["activation_maps"]
+
+
 
     #steps_per_epoch = 48000
     optimizer = getattr(optimizers, optimizer)
@@ -65,31 +74,47 @@ def train(config):
     #tb.set_model(model)
     #callbacks.append(tb)
 
-    #model.load_weights('snapshots/minivgg_best_model.h5')
-    model.fit_generator(train_gen,
-                        epochs=epochs,
-                        steps_per_epoch=1000, #len(train_gen),
-                        validation_data=val_data,
-                        #validation_steps=len(val_gen),
-                        callbacks=callbacks,
-                        workers=1,
-                        verbose=1)
+    #model.load_weights('data/best_run/snapshots/minivgg_best_model.h5')
+    model = load_model('data/95_with_embeddings/snapshots/minivgg_best_model.h5')
+    #model.fit_generator(train_gen,
+    #                    epochs=epochs,
+    #                    steps_per_epoch=1000, #len(train_gen),
+    #                    validation_data=val_data,
+    #                    #validation_steps=len(val_gen),
+    #                    callbacks=callbacks,
+    #                    workers=1,
+    #                    verbose=1)
 
     result = model.evaluate(x_test,y_test)
     print('test loss: %0.4f, test accuracy: %0.4f'%(result[0],result[1]))
+    if knn_compare:
+        feature_model = Model(model.input, model.layers[-3].output)
+        train_gen.reset()
+        x_train, y_train = zip(*[next(train_gen) for _ in range(len(train_gen))])
+        x_train = np.vstack(x_train)
+        y_train = np.vstack(y_train)
 
-    feature_model = Model(model.input, model.layers[-3].output)
-    train_gen.reset()
-    x_train, y_train = zip(*[next(train_gen) for _ in range(len(train_gen))])
-    x_train = np.vstack(x_train)
-    y_train = np.vstack(y_train)
+        training_features = feature_model.predict(x_train)
 
-    training_features = feature_model.predict(x_train)
+        test_features = feature_model.predict(x_test)
 
-    test_features = feature_model.predict(x_test)
+        knn(training_features,y_train, test_features, y_test)
 
-    knn(training_features,y_train, test_features, y_test)
+    if activation_maps:
+        predictions = model.predict(x_test)
+        predictions = np.argmax(predictions, axis=-1)
+        y_test = np.argmax(y_test, axis=-1)
+        incorrect = np.nonzero(predictions!=y_test)[0]
+        correct = np.nonzero(predictions == y_test)[0]
+        for i in incorrect[:20]:
+            overlayed_img = overlay_cam(model,x_test[i], predictions[i], -1, -7)
+            cv2.imwrite(os.path.join(log_dir,'incorrect_%d_%s_%s.jpg'%(i, LABELS[y_test[i]], LABELS[predictions[i]])),
+                        overlayed_img)
 
+        for i in correct[:20]:
+            overlayed_img = overlay_cam(model, x_test[i], predictions[i], -1, -7)
+            cv2.imwrite(os.path.join(log_dir, 'correct_%d_%s_%s.jpg'%(i, LABELS[y_test[i]], LABELS[predictions[i]])),
+                        overlayed_img)
 
     #model.save(os.path.join(snapshot_dir, architecture+'_best_model.h5'))
 
