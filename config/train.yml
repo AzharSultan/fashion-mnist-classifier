@@ -1,0 +1,12 @@
+snapshot_dir: 'snapshots/'
+log_dir: 'logs/'
+architecture: 'wrn_28_10'
+epochs: 400
+batch_size: 64
+loss: 'categorical_crossentropy'
+optimizer: 'Adam'
+learning_rate: 0.0003
+row_size: 28
+col_size: 28
+channels: 1
+num_classes: 10

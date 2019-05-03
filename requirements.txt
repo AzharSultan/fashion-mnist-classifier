@@ -1,0 +1,13 @@
+tensorflow-gpu
+keras
+numpy
+pandas
+scikit-learn
+seaborn
+plotly
+matplotlib
+Pillow
+pydot
+opencv
+click
+yaml
