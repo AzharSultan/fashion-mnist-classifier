@@ -14,12 +14,12 @@ RANDOM_STATE = 0 # for splitting data into training and validation
 def create_datagen(train_X):
     data_generator = ImageDataGenerator(
         featurewise_center=True,
-        rescale=1./255.,
-        width_shift_range=0.02,
-        height_shift_range=0.02,
-        shear_range=0.02,
-        zoom_range=0.05,
-        brightness_range=(0.8,1.2),
+        #rescale=1./255.,
+        #width_shift_range={{uniform(0,0.1)}},
+        #height_shift_range={{uniform(0,0.1)}},
+        #shear_range={{uniform(0,0.2)}},
+        #zoom_range={{uniform(0,0.3)}},
+        #brightness_range=({{uniform(0.7,1.0)}},{{uniform(1.0,1.4)}}),
         horizontal_flip=True,
         #vertical_flip=True
     )
@@ -28,8 +28,8 @@ def create_datagen(train_X):
 def create_valgen(train_X):
     data_generator = ImageDataGenerator(
         featurewise_center=True,
-        rescale=1./255.,
-        brightness_range=(1.0,1.0), # needed due to a possible bug in keras implementation
+        #rescale=1./255.,
+        #brightness_range=(1.0,1.0), # needed due to a possible bug in keras implementation
     )
     data_generator.fit(train_X)
     return data_generator
@@ -47,7 +47,7 @@ def get_train_val_gen(batch_size):
 
     train_gen = train_augmentation.flow(x_train,y_train, batch_size)
     val_data = next(val_augmentation.flow(x_val,y_val, len(x_val), shuffle=False))
-    test_data = next(val_augmentation.flow(x_test,y_test, len(x_val), shuffle=False))
+    test_data = next(val_augmentation.flow(x_test,y_test, len(x_test), shuffle=False))
 
     #val_data = (x_val-train_augmentation.mean, y_val)
     #test_data = (x_test-train_augmentation.mean, y_test)

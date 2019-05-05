@@ -13,7 +13,7 @@ from __future__ import division
 import warnings
 
 from keras.models import Model
-from keras.layers.core import Dense, Dropout, Activation
+from keras.layers.core import Dense, Dropout, Activation, SpatialDropout2D
 from keras.layers.pooling import MaxPooling2D, GlobalAveragePooling2D
 from keras.layers import Input, Conv2D
 from keras.layers.merge import add
@@ -22,6 +22,7 @@ from keras.utils.layer_utils import convert_all_kernels_in_model
 from keras.utils.data_utils import get_file
 from keras.engine.topology import get_source_inputs
 from keras_applications.imagenet_utils import _obtain_input_shape
+from keras.regularizers import l2
 import keras.backend as K
 
 TH_WEIGHTS_PATH = ('https://github.com/titu1994/Wide-Residual-Networks/'
@@ -37,7 +38,7 @@ TF_WEIGHTS_PATH_NO_TOP = ('https://github.com/titu1994/Wide-Residual-Networks/re
 def WideResidualNetwork(depth=28, width=8, dropout_rate=0.0,
                         include_top=True, weights='cifar10',
                         input_tensor=None, input_shape=None,
-                        classes=10, activation='softmax'):
+                        classes=10, activation='softmax', weight_decay=0.0):
     """Instantiate the Wide Residual Network architecture,
         optionally loading weights pre-trained
         on CIFAR-10. Note that when using TensorFlow,
@@ -103,8 +104,9 @@ def WideResidualNetwork(depth=28, width=8, dropout_rate=0.0,
         else:
             img_input = input_tensor
 
-    x = __create_wide_residual_network(classes, img_input, include_top, depth, width,
-                                       dropout_rate, activation)
+    img_input2 = SpatialDropout2D(rate=0.05)(img_input)
+    x = __create_wide_residual_network(classes, img_input2, include_top, depth, width,
+                                       dropout_rate, activation, weight_decay)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -164,8 +166,8 @@ def WideResidualNetwork(depth=28, width=8, dropout_rate=0.0,
     return model
 
 
-def __conv1_block(input):
-    x = Conv2D(16, (3, 3), padding='same')(input)
+def __conv1_block(input, weight_decay=0.0):
+    x = Conv2D(16, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(input)
 
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
@@ -174,7 +176,7 @@ def __conv1_block(input):
     return x
 
 
-def __conv2_block(input, k=1, dropout=0.0):
+def __conv2_block(input, k=1, dropout=0.0, weight_decay=0.0):
     init = input
 
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
@@ -183,19 +185,19 @@ def __conv2_block(input, k=1, dropout=0.0):
     # convolution2d for this input
     if K.image_data_format() == 'channels_first':
         if init._keras_shape[1] != 16 * k:
-            init = Conv2D(16 * k, (1, 1), activation='linear', padding='same')(init)
+            init = Conv2D(16 * k, (1, 1), activation='linear',kernel_regularizer=l2(weight_decay), padding='same')(init)
     else:
         if init._keras_shape[-1] != 16 * k:
-            init = Conv2D(16 * k, (1, 1), activation='linear', padding='same')(init)
+            init = Conv2D(16 * k, (1, 1), activation='linear',kernel_regularizer=l2(weight_decay), padding='same')(init)
 
-    x = Conv2D(16 * k, (3, 3), padding='same')(input)
+    x = Conv2D(16 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(input)
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
     if dropout > 0.0:
         x = Dropout(dropout)(x)
 
-    x = Conv2D(16 * k, (3, 3), padding='same')(x)
+    x = Conv2D(16 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(x)
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
@@ -203,7 +205,7 @@ def __conv2_block(input, k=1, dropout=0.0):
     return m
 
 
-def __conv3_block(input, k=1, dropout=0.0):
+def __conv3_block(input, k=1, dropout=0.0, weight_decay=0.0):
     init = input
 
     channel_axis = 1 if K.image_data_format() == 'channels_first' else -1
@@ -212,19 +214,19 @@ def __conv3_block(input, k=1, dropout=0.0):
     # create convolution2d for this input
     if K.image_data_format() == 'channels_first':
         if init._keras_shape[1] != 32 * k:
-            init = Conv2D(32 * k, (1, 1), activation='linear', padding='same')(init)
+            init = Conv2D(32 * k, (1, 1), activation='linear',kernel_regularizer=l2(weight_decay), padding='same')(init)
     else:
         if init._keras_shape[-1] != 32 * k:
-            init = Conv2D(32 * k, (1, 1), activation='linear', padding='same')(init)
+            init = Conv2D(32 * k, (1, 1), activation='linear',kernel_regularizer=l2(weight_decay), padding='same')(init)
 
-    x = Conv2D(32 * k, (3, 3), padding='same')(input)
+    x = Conv2D(32 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(input)
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
     if dropout > 0.0:
         x = Dropout(dropout)(x)
 
-    x = Conv2D(32 * k, (3, 3), padding='same')(x)
+    x = Conv2D(32 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(x)
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
@@ -232,7 +234,7 @@ def __conv3_block(input, k=1, dropout=0.0):
     return m
 
 
-def ___conv4_block(input, k=1, dropout=0.0, last_block=False):
+def ___conv4_block(input, k=1, dropout=0.0, last_block=False, weight_decay=0.0):
     init = input
 
     channel_axis = 1 if K.image_dim_ordering() == 'th' else -1
@@ -241,12 +243,12 @@ def ___conv4_block(input, k=1, dropout=0.0, last_block=False):
     # create convolution2d for this input
     if K.image_dim_ordering() == 'th':
         if init._keras_shape[1] != 64 * k:
-            init = Conv2D(64 * k, (1, 1), activation='linear', padding='same')(init)
+            init = Conv2D(64 * k, (1, 1), activation='linear',kernel_regularizer=l2(weight_decay), padding='same')(init)
     else:
         if init._keras_shape[-1] != 64 * k:
-            init = Conv2D(64 * k, (1, 1), activation='linear', padding='same')(init)
+            init = Conv2D(64 * k, (1, 1), activation='linear',kernel_regularizer=l2(weight_decay), padding='same')(init)
 
-    x = Conv2D(64 * k, (3, 3), padding='same')(input)
+    x = Conv2D(64 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(input)
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
@@ -254,9 +256,9 @@ def ___conv4_block(input, k=1, dropout=0.0, last_block=False):
         x = Dropout(dropout)(x)
 
     if last_block:
-        x = Conv2D(64 * k, (3, 3), padding='same', name="features")(x)
+        x = Conv2D(64 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same', name="features")(x)
     else:
-        x = Conv2D(64 * k, (3, 3), padding='same')(x)
+        x = Conv2D(64 * k, (3, 3),kernel_regularizer=l2(weight_decay), padding='same')(x)
     x = BatchNormalization(axis=channel_axis)(x)
     x = Activation('relu')(x)
 
@@ -265,7 +267,7 @@ def ___conv4_block(input, k=1, dropout=0.0, last_block=False):
 
 
 def __create_wide_residual_network(nb_classes, img_input, include_top, depth=28,
-                                   width=8, dropout=0.0, activation='softmax'):
+                                   width=8, dropout=0.0, activation='softmax', weight_decay=0.0):
     ''' Creates a Wide Residual Network with specified parameters
 
     Args:
@@ -284,23 +286,23 @@ def __create_wide_residual_network(nb_classes, img_input, include_top, depth=28,
 
     N = (depth - 4) // 6
 
-    x = __conv1_block(img_input)
+    x = __conv1_block(img_input,weight_decay)
     nb_conv = 4
 
     for i in range(N):
-        x = __conv2_block(x, width, dropout)
+        x = __conv2_block(x, width, dropout, weight_decay)
         nb_conv += 2
 
     x = MaxPooling2D((2, 2))(x)
 
     for i in range(N):
-        x = __conv3_block(x, width, dropout)
+        x = __conv3_block(x, width, dropout, weight_decay)
         nb_conv += 2
 
     x = MaxPooling2D((2, 2))(x)
 
     for i in range(N):
-        x = ___conv4_block(x, width, dropout, i==(N-1))
+        x = ___conv4_block(x, width, dropout, i==(N-1), weight_decay)
         nb_conv += 2
 
     if include_top:
