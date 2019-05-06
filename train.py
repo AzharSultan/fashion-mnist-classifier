@@ -42,11 +42,9 @@ LABELS = {0 : "T-shirt/top", 1: "Trouser", 2: "Pullover", 3: "Dress", 4: "Coat",
 
 def train(config):
 
-    batch_size = config["batch_size"]
+
     epochs = config["epochs"]
-    learning_rate = config["learning_rate"]
     loss = config["loss"]
-    optimizer = config["optimizer"]
     architecture = config["architecture"]
     row_size = config["row_size"]
     col_size = config["col_size"]
@@ -56,31 +54,41 @@ def train(config):
     log_dir = config["log_dir"]
     knn_compare = config["knn_compare"]
     activation_maps = config["activation_maps"]
+    hyper_optimization = config["hyper_optimization"]
+    random_labels = config["random_labels"]
+
 
     #optimizer = {{choice(['Adam','SGD'])}}
-    learning_rate = {{uniform(0.01,0.00001)}}
-    batch_size = {{choice([64,128])}}
+    if hyper_optimization:
+        learning_rate = {{uniform(0.01,0.00001)}}
+        batch_size = {{choice([64,128])}}
+        optimizer = {{choice(['adam', 'sgd'])}}
+        weight_decay = {{uniform(0.,0.0001)}}
+        dropout = {{uniform(0.,0.7)}}
+        spatialdropout = {{uniform(0.,0.4)}}
+        first_block = {{choice([32,64])}}
+        second_block = {{choice([64,128])}}
+    else:
+        learning_rate = config["learning_rate"]
+        batch_size = config["batch_size"]
+        optimizer = config["optimizer"]
+        weight_decay = config["weight_decay"]
+        dropout = config["dropout"]
+        spatialdropout = config["spatialdropout"]
+        first_block = config["first_block"]
+        second_block = config["second_block"]
 
+    print(learning_rate, batch_size, weight_decay, dropout, spatialdropout)
 
-    #steps_per_epoch = 48000
-    optimizer = getattr(optimizers, optimizer)
-
-    if {{choice(['adam', 'sgd'])}} =='adam':
+    if optimizer == 'adam':
         opt = optimizers.Adam(lr=learning_rate)
     else:
         opt = optimizers.SGD(lr=learning_rate, momentum=0.9)
-
-    weight_decay = {{uniform(0.,0.0001)}}
-    dropout = {{uniform(0.,0.7)}}
-    spatialdropout = {{uniform(0.,0.4)}}
-    first_block = {{choice([32,64])}}
-    second_block = {{choice([64,128])}}
-    print(learning_rate, batch_size, weight_decay, dropout, spatialdropout)
     model = build_arch(architecture, (row_size,col_size,channels), num_classes,weight_decay, dropout, spatialdropout, first_block, second_block)
     model.compile(loss=loss, optimizer=opt, metrics=['accuracy'])
     #model.compile(loss=loss, optimizer=optimizer(lr=learning_rate, momentum=0.9), metrics=['accuracy'])
 
-    train_gen, val_data, test_data = get_train_val_gen(batch_size)
+    train_gen, val_data, test_data = get_train_val_gen(batch_size, random_labels)
     x_test, y_test = test_data
 
     metadata_path = os.path.join(log_dir,'metadata.tsv')
@@ -89,26 +97,26 @@ def train(config):
             np.savetxt(fp,np.argmax(y_test, axis=-1))
 
     callbacks = []
-    callbacks.append(EarlyStopping(monitor='val_acc',patience=15, restore_best_weights=True, verbose=1))
+    callbacks.append(EarlyStopping(monitor='val_acc',patience=65, restore_best_weights=False, verbose=1))
     callbacks.append(CSVLogger(os.path.join(log_dir,'logs.csv')))
-    #callbacks.append(ModelCheckpoint(os.path.join(snapshot_dir,"%s_{epoch:02d}-{val_loss:.2f}.h5"%(architecture)),
-    #                                 monitor='val_acc', save_best_only=True, verbose=1,period=10))
-    callbacks.append(ReduceLROnPlateau(min_lr=0.0000001, verbose=1))
+    callbacks.append(ModelCheckpoint(os.path.join(snapshot_dir,"%s_{epoch:02d}-{val_loss:.2f}.h5"%(architecture)),
+                                     monitor='val_acc', save_best_only=True, verbose=1,period=1))
+    callbacks.append(ReduceLROnPlateau(monitor='val_loss',patience=20, factor=0.2, min_lr=0.0000001, verbose=1))
     #callbacks.append(LearningRateScheduler(lr_schedule))
     #tb = TensorBoardWithSession(K=K, log_dir=log_dir, write_grads=True, write_images=True,
-    #                            embeddings_freq=100, embeddings_layer_names=["features"],
+    #                            embeddings_freq=50, embeddings_layer_names=["features"],
     #                            embeddings_metadata='metadata.tsv', embeddings_data=x_test)
-    #tb.set_model(model)
     #callbacks.append(tb)
 
     #model.load_weights('data/snapshots/minivgg_120-0.19.h5')
-    #model = load_model('data/snapshots/minivgg_best_model.h5')
+    model = load_model('data/snapshots/minivgg_80-0.17.h5')
     model.fit_generator(train_gen,
                         epochs=epochs,
                         steps_per_epoch=1000, #len(train_gen),
                         validation_data=val_data,
                         callbacks=callbacks,
                         workers=1,
+                        initial_epoch=80,
                         verbose=1)
 
     result = model.evaluate(x_test,y_test)
@@ -142,7 +150,7 @@ def train(config):
             cv2.imwrite(os.path.join(log_dir, 'correct_%d_%s_%s.jpg'%(i, LABELS[y_test[i]], LABELS[predictions[i]])),
                         overlayed_img)
 
-    #model.save(os.path.join(snapshot_dir, architecture+'_best_model.h5'))
+    model.save(os.path.join(snapshot_dir, architecture+'_best_model.h5'))
     return {'loss': -result[1], 'status': STATUS_OK, 'model': model}
 
 def data():
@@ -158,15 +166,17 @@ def main(config_file):
         config = yaml.load(fp)
 
     #train(config)
-
-    best_run, best_model = optim.minimize(model=train,
-                                          data=data,
-                                          algo=tpe.suggest,
-                                          max_evals=20,
-                                          trials=Trials())
-    best_model.save()
-    print("Best performing model chosen hyper-parameters:")
-    print(best_run)
+    hyper_optimization = config['hyper_optimization']
+    if not hyper_optimization:
+        train(config)
+    else:
+        best_run, best_model = optim.minimize(model=train,
+                                              data=data,
+                                              algo=tpe.suggest,
+                                              max_evals=20,
+                                              trials=Trials())
+        print("Best performing model chosen hyper-parameters:")
+        print(best_run)
 
 if __name__=='__main__':
     main()

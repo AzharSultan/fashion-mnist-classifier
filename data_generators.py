@@ -14,12 +14,12 @@ RANDOM_STATE = 0 # for splitting data into training and validation
 def create_datagen(train_X):
     data_generator = ImageDataGenerator(
         featurewise_center=True,
-        #rescale=1./255.,
-        #width_shift_range={{uniform(0,0.1)}},
-        #height_shift_range={{uniform(0,0.1)}},
-        #shear_range={{uniform(0,0.2)}},
-        #zoom_range={{uniform(0,0.3)}},
-        #brightness_range=({{uniform(0.7,1.0)}},{{uniform(1.0,1.4)}}),
+        rescale=1./255.,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        shear_range=0.1,
+        zoom_range=0.2,
+        brightness_range=(0.8,1.4),
         horizontal_flip=True,
         #vertical_flip=True
     )
@@ -28,17 +28,19 @@ def create_datagen(train_X):
 def create_valgen(train_X):
     data_generator = ImageDataGenerator(
         featurewise_center=True,
-        #rescale=1./255.,
-        #brightness_range=(1.0,1.0), # needed due to a possible bug in keras implementation
+        rescale=1./255.,
+        brightness_range=(1.0,1.0), # needed due to a possible bug in keras implementation
     )
     data_generator.fit(train_X)
     return data_generator
 
-def get_train_val_gen(batch_size):
+def get_train_val_gen(batch_size, random_labels=False):
     (x, y), (x_test,y_test) = fashion_mnist.load_data()
     x = np.expand_dims(x,axis=-1)
     x_test = np.expand_dims(x_test,axis=-1)/255
     x_train,x_val, y_train, y_val = train_test_split(x/255,y,test_size=0.2,random_state=1)
+    if random_labels:
+        np.random.shuffle(y_train)
     y_train = to_categorical(y_train, num_classes=10)
     y_val = to_categorical(y_val, num_classes=10)
     y_test = to_categorical(y_test, num_classes=10)
