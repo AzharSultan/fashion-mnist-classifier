@@ -56,18 +56,24 @@ def train(config):
     activation_maps = config["activation_maps"]
     hyper_optimization = config["hyper_optimization"]
     random_labels = config["random_labels"]
+    initial_epoch = config["initial_epoch"]
+    starting_checkpoint = config["starting_checkpoint"]
+
+
+    os.makedirs(snapshot_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
 
 
     #optimizer = {{choice(['Adam','SGD'])}}
     if hyper_optimization:
-        learning_rate = {{uniform(0.01,0.00001)}}
-        batch_size = {{choice([64,128])}}
+        learning_rate = {{uniform(0.1,0.00001)}}
+        batch_size = {{choice([64,128,256])}}
         optimizer = {{choice(['adam', 'sgd'])}}
         weight_decay = {{uniform(0.,0.0001)}}
         dropout = {{uniform(0.,0.7)}}
         spatialdropout = {{uniform(0.,0.4)}}
         first_block = {{choice([32,64])}}
-        second_block = {{choice([64,128])}}
+        #second_block = {{choice([64,128])}}
     else:
         learning_rate = config["learning_rate"]
         batch_size = config["batch_size"]
@@ -76,8 +82,8 @@ def train(config):
         dropout = config["dropout"]
         spatialdropout = config["spatialdropout"]
         first_block = config["first_block"]
-        second_block = config["second_block"]
-
+        #second_block = config["second_block"]
+    second_block = 2*first_block
     print(learning_rate, batch_size, weight_decay, dropout, spatialdropout)
 
     if optimizer == 'adam':
@@ -99,8 +105,9 @@ def train(config):
     callbacks = []
     callbacks.append(EarlyStopping(monitor='val_acc',patience=65, restore_best_weights=False, verbose=1))
     callbacks.append(CSVLogger(os.path.join(log_dir,'logs.csv')))
-    callbacks.append(ModelCheckpoint(os.path.join(snapshot_dir,"%s_{epoch:02d}-{val_loss:.2f}.h5"%(architecture)),
-                                     monitor='val_acc', save_best_only=True, verbose=1,period=1))
+    model_checkpoint_path = os.path.join(snapshot_dir,"%s_lr%0.4f_bs%d_%s_wd%0.5f_do%0.1f_sdo%0.1f_fb%d_{epoch:02d}-{val_loss:.2f}.h5"%
+                                         (architecture,learning_rate, batch_size, optimizer, weight_decay, dropout, spatialdropout, first_block))
+    callbacks.append(ModelCheckpoint(model_checkpoint_path, monitor='val_acc', save_best_only=True, verbose=1,period=1))
     callbacks.append(ReduceLROnPlateau(monitor='val_loss',patience=20, factor=0.2, min_lr=0.0000001, verbose=1))
     #callbacks.append(LearningRateScheduler(lr_schedule))
     #tb = TensorBoardWithSession(K=K, log_dir=log_dir, write_grads=True, write_images=True,
@@ -109,14 +116,15 @@ def train(config):
     #callbacks.append(tb)
 
     #model.load_weights('data/snapshots/minivgg_120-0.19.h5')
-    model = load_model('data/snapshots/minivgg_80-0.17.h5')
+    if starting_checkpoint:
+        model = load_model(starting_checkpoint)
     model.fit_generator(train_gen,
                         epochs=epochs,
                         steps_per_epoch=1000, #len(train_gen),
                         validation_data=val_data,
                         callbacks=callbacks,
                         workers=1,
-                        initial_epoch=80,
+                        initial_epoch=initial_epoch,
                         verbose=1)
 
     result = model.evaluate(x_test,y_test)
