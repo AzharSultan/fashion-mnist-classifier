@@ -1,0 +1,2 @@
+data/snapshots/minivgg_lr0.0616_bs128_sgd_wd0.00010_do0.55_sdo0.03_fb64_237-0.18.h5 filter=lfs diff=lfs merge=lfs -text
+data/logs/minivgg_lr0.0616_bs128_sgd_wd0.00010_do0.55_sdo0.03_fb64.csv filter=lfs diff=lfs merge=lfs -text

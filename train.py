@@ -1,5 +1,6 @@
 import cv2
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 import click
 import yaml
 import numpy as np
@@ -29,7 +30,7 @@ from knn import evaluate_knn
 from hyperopt import Trials, STATUS_OK, tpe
 from hyperas import optim
 from hyperas.distributions import choice, loguniform, uniform
-
+#os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 def lr_schedule(epoch, lr):
     #if epoch=={{uniform(30,100)}} or epoch=={{uniform(70,130)}}:
     #   lr =  lr*0.1
@@ -92,7 +93,6 @@ def train(config):
         opt = optimizers.SGD(lr=learning_rate, momentum=0.9)
     model = build_arch(architecture, (row_size,col_size,channels), num_classes,weight_decay, dropout, spatialdropout, first_block, second_block)
     model.compile(loss=loss, optimizer=opt, metrics=['accuracy'])
-    #model.compile(loss=loss, optimizer=optimizer(lr=learning_rate, momentum=0.9), metrics=['accuracy'])
 
     train_gen, val_data, test_data = get_train_val_gen(batch_size, random_labels)
     x_test, y_test = test_data
@@ -103,12 +103,14 @@ def train(config):
             np.savetxt(fp,np.argmax(y_test, axis=-1))
 
     callbacks = []
-    callbacks.append(EarlyStopping(monitor='val_acc',patience=65, restore_best_weights=False, verbose=1))
-    callbacks.append(CSVLogger(os.path.join(log_dir,'logs.csv')))
-    model_checkpoint_path = os.path.join(snapshot_dir,"%s_lr%0.4f_bs%d_%s_wd%0.5f_do%0.1f_sdo%0.1f_fb%d_{epoch:02d}-{val_loss:.2f}.h5"%
+    callbacks.append(EarlyStopping(monitor='val_acc',patience=75, restore_best_weights=True, verbose=1))
+    callbacks.append(CSVLogger(os.path.join(log_dir,"%s_lr%0.4f_bs%d_%s_wd%0.5f_do%0.2f_sdo%0.2f_fb%d.csv"%
+                                         (architecture,learning_rate, batch_size, optimizer, weight_decay, dropout, spatialdropout, first_block))))
+    model_checkpoint_path = os.path.join(snapshot_dir,"%s_lr%0.4f_bs%d_%s_wd%0.5f_do%0.2f_sdo%0.2f_fb%d_{epoch:02d}-{val_loss:.2f}.h5"%
                                          (architecture,learning_rate, batch_size, optimizer, weight_decay, dropout, spatialdropout, first_block))
     callbacks.append(ModelCheckpoint(model_checkpoint_path, monitor='val_acc', save_best_only=True, verbose=1,period=1))
-    callbacks.append(ReduceLROnPlateau(monitor='val_loss',patience=20, factor=0.2, min_lr=0.0000001, verbose=1))
+    callbacks.append(ReduceLROnPlateau(monitor='val_loss',patience=50, factor=0.2, min_lr=0.0000001, verbose=1))
+    callbacks.append(ReduceLROnPlateau(monitor='loss',patience=15, factor=0.2, min_lr=0.0001, verbose=1))
     #callbacks.append(LearningRateScheduler(lr_schedule))
     #tb = TensorBoardWithSession(K=K, log_dir=log_dir, write_grads=True, write_images=True,
     #                            embeddings_freq=50, embeddings_layer_names=["features"],
@@ -117,7 +119,8 @@ def train(config):
 
     #model.load_weights('data/snapshots/minivgg_120-0.19.h5')
     if starting_checkpoint:
-        model = load_model(starting_checkpoint)
+        model.load_weights(starting_checkpoint)
+
     model.fit_generator(train_gen,
                         epochs=epochs,
                         steps_per_epoch=1000, #len(train_gen),
@@ -125,7 +128,7 @@ def train(config):
                         callbacks=callbacks,
                         workers=1,
                         initial_epoch=initial_epoch,
-                        verbose=1)
+                        verbose=2)
 
     result = model.evaluate(x_test,y_test)
     print('test loss: %0.4f, test accuracy: %0.4f'%(result[0],result[1]))
