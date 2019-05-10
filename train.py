@@ -23,8 +23,8 @@ class TensorBoardWithSession(TensorBoard):
 
 from models import build_arch
 from data_generators import get_train_val_gen, get_test_data
-from visualize_activation import overlay_cam
-from knn import knn
+from visualize_activation import save_activation_maps
+from knn import evaluate_knn
 
 from hyperopt import Trials, STATUS_OK, tpe
 from hyperas import optim
@@ -129,34 +129,13 @@ def train(config):
 
     result = model.evaluate(x_test,y_test)
     print('test loss: %0.4f, test accuracy: %0.4f'%(result[0],result[1]))
+
     if knn_compare:
-        feature_model = Model(model.input, model.layers[-3].output)
-        train_gen.reset()
-        x_train, y_train = zip(*[next(train_gen) for _ in range(len(train_gen))])
-        x_train = np.vstack(x_train)
-        y_train = np.vstack(y_train)
-
-        training_features = feature_model.predict(x_train)
-
-        test_features = feature_model.predict(x_test)
-
-        knn(training_features,y_train, test_features, y_test)
+        knn_accuracy = evaluate_knn(model, train_gen, x_test, y_test)
+        print('knn test accuracy: %0.4f'%(knn_accuracy))
 
     if activation_maps:
-        predictions = model.predict(x_test)
-        predictions = np.argmax(predictions, axis=-1)
-        y_test = np.argmax(y_test, axis=-1)
-        incorrect = np.nonzero(predictions!=y_test)[0]
-        correct = np.nonzero(predictions == y_test)[0]
-        for i in incorrect[:20]:
-            overlayed_img = overlay_cam(model,x_test[i], predictions[i], -1, -7)
-            cv2.imwrite(os.path.join(log_dir,'incorrect_%d_%s_%s.jpg'%(i, LABELS[y_test[i]], LABELS[predictions[i]])),
-                        overlayed_img)
-
-        for i in correct[:20]:
-            overlayed_img = overlay_cam(model, x_test[i], predictions[i], -1, -7)
-            cv2.imwrite(os.path.join(log_dir, 'correct_%d_%s_%s.jpg'%(i, LABELS[y_test[i]], LABELS[predictions[i]])),
-                        overlayed_img)
+        save_activation_maps(model,x_test,y_test,log_dir)
 
     model.save(os.path.join(snapshot_dir, architecture+'_best_model.h5'))
     return {'loss': -result[1], 'status': STATUS_OK, 'model': model}
