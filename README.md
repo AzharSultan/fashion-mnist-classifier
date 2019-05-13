@@ -32,3 +32,12 @@ Set **knn_compare** and **activation_maps** to True to get kNearestNeighbors per
 ```
 python test.py --snapshot data/snapshots/minivgg_lr0.0006_bs128_sgd3_wd0.00010_do0.55_sdo0.03_fb64_11-0.17.h5 --config_file config/test.yml --image data/logs/test.jpg
 ```
+### Embeddings
+To generate tensorboard embeddings for any saved model snapshots:
+```
+python embeddings.py data/snapshots/minivgg_lr0.0616_bs128_sgd_wd0.00010_do0.55_sdo0.03_fb64_ data/logs/embeddings/
+```
+where the first argument is the base path to search for model snapshots and the second argument is the path where embeddings for each model are saved in a separate folder. Embeddings can be visulaized using:
+```
+tensorboard --logdir path/to/embedding
+```
