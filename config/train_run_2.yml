@@ -1,6 +1,6 @@
 snapshot_dir: 'data/snapshots/'
 log_dir: 'data/logs/'
-epochs: 400
+epochs: 20
 row_size: 28
 col_size: 28
 channels: 1
@@ -10,12 +10,12 @@ activation_maps: False
 hyper_optimization: False
 random_labels: False
 architecture: 'minivgg'
-starting_checkpoint: ''
+starting_checkpoint: 'data/snapshots/minivgg_lr0.0616_bs128_sgd_wd0.00010_do0.55_sdo0.03_fb64_237-0.18.h5'
 initial_epoch: 0
 batch_size: 128
 loss: 'categorical_crossentropy'
 optimizer: 'SGD'
-learning_rate: 0.0616
+learning_rate: 0.000616
 weight_decay: 0.0001
 dropout: 0.55
 spatialdropout: 0.027

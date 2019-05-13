@@ -2,6 +2,7 @@ import numpy as np
 np.random.seed(1337)
 import tensorflow as tf
 tf.set_random_seed(1337)
+import pandas as pd
 from keras.utils import to_categorical
 from keras.datasets import fashion_mnist
 from keras.preprocessing.image import ImageDataGenerator
@@ -20,8 +21,7 @@ def create_datagen(train_X):
         shear_range=0.05,
         zoom_range=0.1,
         brightness_range=(0.8,1.2),
-        horizontal_flip=True,
-        #vertical_flip=True
+        horizontal_flip=True
     )
     data_generator.fit(train_X)
     return data_generator
@@ -34,9 +34,17 @@ def create_valgen(train_X):
     data_generator.fit(train_X)
     return data_generator
 
-def get_train_val_gen(batch_size, random_labels=False):
+def get_train_val_gen(batch_size, random_labels=False, kaggle_test_set=False):
     (x, y), (x_test,y_test) = fashion_mnist.load_data()
     x = np.expand_dims(x,axis=-1)
+
+    if kaggle_test_set:
+        raw = pd.read_csv('data/fashionmnist/fashion-mnist_test.csv')
+        y_test = raw.label
+        num_images = raw.shape[0]
+        x_as_array = raw.values[:,1:]
+        x_test = x_as_array.reshape(num_images, 28, 28)
+
     x_test = np.expand_dims(x_test,axis=-1)/255
     x_train,x_val, y_train, y_val = train_test_split(x/255,y,test_size=0.2,random_state=1)
     if random_labels:
@@ -50,9 +58,6 @@ def get_train_val_gen(batch_size, random_labels=False):
     train_gen = train_augmentation.flow(x_train,y_train, batch_size)
     val_data = next(val_augmentation.flow(x_val,y_val, len(x_val), shuffle=False))
     test_data = next(val_augmentation.flow(x_test,y_test, len(x_test), shuffle=False))
-
-    #val_data = (x_val-train_augmentation.mean, y_val)
-    #test_data = (x_test-train_augmentation.mean, y_test)
 
     return train_gen, val_data, test_data
 
