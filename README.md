@@ -11,7 +11,9 @@ pip install -r requirements.txt
 ```
 ### Training
 Training can be run using the following command:
-`python train.py --config_file config/train.yml`
+```
+python train.py --config_file config/train.yml
+```
 
 Default parameters in the train.yml are the ones that achieved the best result. Parameters that are not self-explanatory are:
 - **random_labels**: Set True to train with random training labels
@@ -20,9 +22,13 @@ Default parameters in the train.yml are the ones that achieved the best result. 
 
 ### Evaluation
 Evaluation on the best model can be run using:
-`python evaluate.py --config_file config/evaluate.yml --snapshot data/snapshots/minivgg_lr0.0006_bs128_sgd3_wd0.00010_do0.55_sdo0.03_fb64_11-0.17.h5`
+```
+python evaluate.py --config_file config/evaluate.yml --snapshot data/snapshots/minivgg_lr0.0006_bs128_sgd3_wd0.00010_do0.55_sdo0.03_fb64_11-0.17.h5
+```
 
 Set **knn_compare** and **activation_maps** to True to get kNearestNeighbors performance and class activation maps for predicted images respectively.
 
 ### Test on a single image
-`python test.py --snapshot data/snapshots/minivgg_lr0.0006_bs128_sgd3_wd0.00010_do0.55_sdo0.03_fb64_11-0.17.h5 --config_file config/test.yml --image data/logs/test.jpg`
+```
+python test.py --snapshot data/snapshots/minivgg_lr0.0006_bs128_sgd3_wd0.00010_do0.55_sdo0.03_fb64_11-0.17.h5 --config_file config/test.yml --image data/logs/test.jpg
+```
