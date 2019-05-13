@@ -2,6 +2,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import click
 import yaml
+import numpy as np
 from skimage.io import imread
 from keras.models import load_model
 from data_generators import get_labels
@@ -28,8 +29,9 @@ def test(snapshot, image, config_file):
     model = load_model(snapshot)
     img = imread(image)
     img = img/255.0 - mean
-    img = img.reshape((28,28,1))
+    img = img.reshape((1,28,28,1))
     prediction = model.predict(img)
+    prediction = np.argmax(prediction[0], axis=-1)
     print("Sample %s: class %s"%(image, labels[prediction]))
 
 if __name__=="__main__":
