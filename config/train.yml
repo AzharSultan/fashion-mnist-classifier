@@ -5,8 +5,6 @@ row_size: 28
 col_size: 28
 channels: 1
 num_classes: 10
-knn_compare: False
-activation_maps: False
 hyper_optimization: False
 random_labels: False
 architecture: 'minivgg'
