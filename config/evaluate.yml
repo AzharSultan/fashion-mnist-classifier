@@ -1,0 +1,4 @@
+kaggle_test_set: False
+knn_compare: False
+activation_maps: False
+save_dir: ''
