@@ -2,11 +2,10 @@ import os
 import cv2
 import numpy as np
 from vis.visualization import visualize_cam
-
-LABELS = {0 : "T-shirt/top", 1: "Trouser", 2: "Pullover", 3: "Dress", 4: "Coat",
-          5: "Sandal", 6: "Shirt", 7: "Sneaker", 8: "Bag", 9: "Ankle Boot"}
+from data_generators import get_labels
 
 def save_activation_maps(model, x_test, y_test, log_dir):
+    labels = get_labels()
     predictions = model.predict(x_test)
     predictions = np.argmax(predictions, axis=-1)
     y_test = np.argmax(y_test, axis=-1)
@@ -14,12 +13,12 @@ def save_activation_maps(model, x_test, y_test, log_dir):
     correct = np.nonzero(predictions == y_test)[0]
     for i in incorrect[:20]:
         overlayed_img = overlay_cam(model, x_test[i], predictions[i], -1, -7)
-        cv2.imwrite(os.path.join(log_dir, 'incorrect_%d_%s_%s.jpg' % (i, LABELS[y_test[i]], LABELS[predictions[i]])),
+        cv2.imwrite(os.path.join(log_dir, 'incorrect_%d_%s_%s.jpg' % (i, labels[y_test[i]], labels[predictions[i]])),
                     overlayed_img)
 
     for i in correct[:20]:
         overlayed_img = overlay_cam(model, x_test[i], predictions[i], -1, -7)
-        cv2.imwrite(os.path.join(log_dir, 'correct_%d_%s_%s.jpg' % (i, LABELS[y_test[i]], LABELS[predictions[i]])),
+        cv2.imwrite(os.path.join(log_dir, 'correct_%d_%s_%s.jpg' % (i, labels[y_test[i]], labels[predictions[i]])),
                     overlayed_img)
 
 def overlay_cam(model, img, prediction, layer_idx, last_conv_layer_id, cutoff=30):
