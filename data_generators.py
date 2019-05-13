@@ -9,8 +9,8 @@ from keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 
 NUM_CLASSES = 10 # needed for one hot encoding
-TEST_SIZE = 0.2 # ratio of split between training and validation data
-RANDOM_STATE = 0 # for splitting data into training and validation
+VAL_SIZE = 0.2 # ratio of split between training and validation data
+RANDOM_STATE = 1 # for splitting data into training and validation
 
 def create_datagen(train_X):
     data_generator = ImageDataGenerator(
@@ -36,7 +36,6 @@ def create_valgen(train_X):
 
 def get_train_val_gen(batch_size, random_labels=False, kaggle_test_set=False):
     (x, y), (x_test,y_test) = fashion_mnist.load_data()
-    x = np.expand_dims(x,axis=-1)
 
     if kaggle_test_set:
         raw = pd.read_csv('data/fashionmnist/fashion-mnist_test.csv')
@@ -45,13 +44,14 @@ def get_train_val_gen(batch_size, random_labels=False, kaggle_test_set=False):
         x_as_array = raw.values[:,1:]
         x_test = x_as_array.reshape(num_images, 28, 28)
 
+    x = np.expand_dims(x,axis=-1)/255
     x_test = np.expand_dims(x_test,axis=-1)/255
-    x_train,x_val, y_train, y_val = train_test_split(x/255,y,test_size=0.2,random_state=1)
+    x_train,x_val, y_train, y_val = train_test_split(x, y, test_size=VAL_SIZE, random_state=RANDOM_STATE)
     if random_labels:
         np.random.shuffle(y_train)
-    y_train = to_categorical(y_train, num_classes=10)
-    y_val = to_categorical(y_val, num_classes=10)
-    y_test = to_categorical(y_test, num_classes=10)
+    y_train = to_categorical(y_train, num_classes=NUM_CLASSES)
+    y_val = to_categorical(y_val, num_classes=NUM_CLASSES)
+    y_test = to_categorical(y_test, num_classes=NUM_CLASSES)
     train_augmentation = create_datagen(x_train)
     val_augmentation = create_valgen(x_train)
 
@@ -60,17 +60,3 @@ def get_train_val_gen(batch_size, random_labels=False, kaggle_test_set=False):
     test_data = next(val_augmentation.flow(x_test,y_test, len(x_test), shuffle=False))
 
     return train_gen, val_data, test_data
-
-def get_test_gen(batch_size):
-    (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-    x_train = np.expand_dims(x_train, axis=-1)
-    x_test = np.expand_dims(x_test,axis=-1)
-    y_test = to_categorical(y_test, num_classes=10)
-    test_augmentation = create_valgen(x_train)
-    test_gen = test_augmentation.flow(x_test, y_test, batch_size)
-    return test_gen
-
-def get_test_data():
-    (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-    x_test = np.expand_dims(x_test, axis=-1)/255
-    return x_test, y_test
